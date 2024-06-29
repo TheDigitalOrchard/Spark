@@ -152,7 +152,7 @@ class Spark
 					$ptr = end($stack);
 					$ptr = $ptr[0];
 					$this->_tokens[$ptr][] = '';
-					$this->_embedded_tokens[$token] = [$ptr, count($this->_tokens[$ptr] - 1)];
+					$this->_embedded_tokens[$token] = [$ptr, count($this->_tokens[$ptr]) - 1];
 				} else {
 					// Tokenise it
 					$html .= "<SPARKTOKEN{$token}>\n";
