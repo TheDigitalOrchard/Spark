@@ -1,6 +1,6 @@
 <?php
 /**
- * Spark is a high-performance template parser designed to work inside 
+ * Spark is a high-performance template parser designed to work inside
  * a full templating engine or alongside an application.
  *
  * @author Skylar Kelty <skylarkelty@gmail.com>
@@ -13,16 +13,17 @@ namespace SkylarK\Spark;
  */
 class Spark
 {
+    const REGEX_TAG = '#</?(.*?)[ >/]+#is';
 	/** The namespace for Spark to use (prefixes all tags) */
 	private $_namespace;
 	/** The namespace callback for Spark to use (called for any tag within a namespace) */
 	private $_namespace_callback;
 	/** A list of all elements we parse */
-	private $_registered_elements = array();
+	private $_registered_elements = [];
 	/** A list of all current tokens */
-	private $_tokens = array();
+	private $_tokens = [];
 	/** A list of all linked tokens (e.g. embedded snippets) */
-	private $_embedded_tokens = array();
+	private $_embedded_tokens = [];
 	/** The last output we processed */
 	private $_output;
 	/** The last set of errors we encountered */
@@ -30,16 +31,16 @@ class Spark
 
 	/**
 	 * Initialise Spark
-	 * 
+	 *
 	 * @param string $namespace The namespace for Spark to use (prefixes all tags)
 	 * @param method $callback  A method to be called for any tags within the namespace (optional, negates Spark::addTag())
 	 */
-	public function __construct($namespace = "Spark", $callback = null) {
+	public function __construct($namespace = 'Spark', $callback = null) {
 		$this->_namespace = $namespace;
 		$this->_namespace_callback = $callback;
 
 		// Add a version tag
-		$this->addTag("SparkVersion", function($html, $inner) {
+		$this->addTag('SparkVersion', function($html, $inner) {
 			return '<a href="https://github.com/SkylarKelty/Spark" target="_blank">Spark</a> v1.1';
 		});
 	}
@@ -61,7 +62,7 @@ class Spark
 	/**
 	 * Register a callback related to a tag.
 	 * Everytime spark encountrers the tag it will call the callback function with the element's markup
-	 * 
+	 *
 	 * @param string  $tag      The Tag to detect
 	 * @param mixed   $callback The Callback to call when the $tag is detected
 	 */
@@ -88,8 +89,7 @@ class Spark
 	 * @return <SparkTest> will return SparkTest
 	 */
 	public function getTagName($tag) {
-		$regex = '#</?(.*?)[ >/]+#is';
-		if (preg_match($regex, $tag, $matches)) {
+		if (preg_match(static::REGEX_TAG, $tag, $matches)) {
 			return $matches[1];
 		}
 		return $tag;
@@ -97,16 +97,16 @@ class Spark
 
 	/**
 	 * Run through a page and return the resulting markup
-	 * 
+	 *
 	 * @param string $html The HTML to render
 	 * @return The resulting markup
 	 */
 	public function run($html) {
 		// Reset vars
-		$this->_output = "";
-		$this->_errors = array();
-		$this->_tokens = array();
-		$this->_embedded_tokens = array();
+		$this->_output = '';
+		$this->_errors = [];
+		$this->_tokens = [];
+		$this->_embedded_tokens = [];
 
 		// Run through the stages
 		$lines = $this->breakup($html);
@@ -119,57 +119,57 @@ class Spark
 	/**
 	 * Breakup a page, ensures all tags are on a separate line.
 	 * Then return an array of lines
-	 * 
+	 *
 	 * @param string $html The HTML to break up
 	 */
 	private function breakup($html) {
-		$html = str_replace(array("<", ">"), array("\n<", ">\n"), $html);
+		$html = str_replace(['<', '>']', ["\n<", ">\n"], $html);
 		return explode("\n", $html);
 	}
 
 	/**
 	 * Tokenise all namespaced tags
-	 * 
+	 *
 	 * @param string $lines The HTML lines to tokenise
 	 */
 	private function tokenise($lines) {
-		$html = "";
+		$html = '';
 		$token = 0;
-		$stack = array();
+		$stack = [];
 
 		foreach ($lines as $line) {
 			// Do we have a valid tag?
-			if (stripos($line, "<" . $this->_namespace) !== false) {
+			if (stripos($line, '<' . $this->_namespace) !== false) {
 				// Get the tagname
 				$tagname = $this->getTagName($line);
 
 				// Register the token
-				$this->_tokens[$token] = array($tagname, $line);
+				$this->_tokens[$token] = [$tagname, $line];
 
 				// Link the token to the previous item on the stack
 				if (count($stack) > 0) {
 					// List it as embedded, the parent is responsible for the output
 					$ptr = end($stack);
 					$ptr = $ptr[0];
-					$this->_tokens[$ptr][] = "";
-					$this->_embedded_tokens[$token] = array($ptr, count($this->_tokens[$ptr]) - 1);
+					$this->_tokens[$ptr][] = '';
+					$this->_embedded_tokens[$token] = [$ptr, count($this->_tokens[$ptr] - 1)];
 				} else {
 					// Tokenise it
-					$html .= "<SPARKTOKEN" . $token . ">\n";
+					$html .= "<SPARKTOKEN{$token}>\n";
 				}
 
 				// Are we empty?
 				$trimmed_line = trim($line);
-				if (strpos($trimmed_line, "/>") !== strlen($trimmed_line) - 2) {
+				if (strpos($trimmed_line, '/>') !== strlen($trimmed_line) - 2) {
 					// We are not an empty tag!
 					// Add it to the stack
-					$stack[] = array($token, $tagname);
+					$stack[] = [$token, $tagname];
 				}
 
 				$token++;
-			} else if (!empty($stack)) {
+			} elseif (!empty($stack)) {
 				// Do we have a closing tag?
-				if (stripos($line, "</" . $this->_namespace) !== false) {
+				if (stripos($line, '<//' . $this->_namespace) !== false) {
 					// Get the tagname
 					$tagname = $this->getTagName($line);
 
@@ -188,12 +188,12 @@ class Spark
 				}
 			} else {
 				// Do we have a closing tag? If so, throw an error
-				if (stripos($line, "</" . $this->_namespace) !== false) {
+				if (stripos($line, '</' . $this->_namespace) !== false) {
 					$tagname = $this->getTagName($line);
 					$this->_errors[] = "Bad markup: Extra or misplaced closing tag found for element: " . $tagname;
 				}
 
-				$html .= $line . "\n";
+				$html .= "{$line}\n";
 			}
 		}
 
@@ -205,19 +205,19 @@ class Spark
 			// Remove that tag and push all the HTML back in
 			array_shift($this->_tokens[$token]);
 
-			$html = str_replace("<SPARKTOKEN" . $token . ">", implode("", $this->_tokens[$token]), $html);
+			$html = str_replace("<SPARKTOKEN{$token}>", implode('', $this->_tokens[$token]), $html);
 			unset($this->_tokens[$token]);
 		}
 
 		// Return HTML to what it looked like before we broke it up
-		$html = str_replace(array("\n<", ">\n"), array("<", ">"), $html);
+		$html = str_replace(["\n<", ">\n"], ['<', '>'], $html);
 
 		return $html;
 	}
 
 	/**
 	 * Replace all tokens with real data
-	 * 
+	 *
 	 * @param string $html The HTML to parse
 	 */
 	private function replace($html) {
@@ -237,7 +237,7 @@ class Spark
 				$inner_markup   = trim(implode("\n", array_slice($data, 1, -1)));
 
 				$markup = $func($snippet_markup, $inner_markup);
-				$html = str_replace("<SPARKTOKEN" . $token . ">", $markup, $html);
+				$html = str_replace("<SPARKTOKEN{$token}>", $markup, $html);
 
 				// Also handle links
 				if (isset($this->_embedded_tokens[$token])) {
@@ -246,7 +246,7 @@ class Spark
 				}
 			} else {
 				$this->_errors[] = $tag . " is not a valid tag!";
-				$html = str_replace("<SPARKTOKEN" . $token . ">", "", $html);
+				$html = str_replace("<SPARKTOKEN{$token}>", '', $html);
 			}
 		}
 
